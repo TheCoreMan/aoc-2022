@@ -1,3 +1,6 @@
+#![feature(iter_array_chunks)]
+
+use kdam::tqdm;
 use std::{collections::HashSet, fs};
 
 fn get_snack_priority(snack: char) -> u32 {
@@ -47,6 +50,31 @@ fn find_common_snack(rucksack: &str) -> char {
     */
 }
 
+fn find_common_snack_v2(rucksacks: Vec<&str>) -> char {
+    let mut all_snacks: HashSet<char> = HashSet::new();
+    for c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".chars() {
+        all_snacks.insert(c);
+    }
+
+    let binding = rucksacks
+        .iter()
+        .map(|rucksack| {
+            let mut rucksack_dedup: HashSet<char> = HashSet::new();
+            for single_snack in rucksack.chars() {
+                rucksack_dedup.insert(single_snack);
+            }
+            return rucksack_dedup;
+        })
+        .fold(all_snacks, |a: HashSet<char>, b: HashSet<char>| {
+            a.into_iter().filter(|snack| b.contains(snack)).collect()
+        });
+    let common_snacks_vec: Vec<&char> = binding.iter().collect();
+
+    assert_eq!(common_snacks_vec.len(), 1);
+
+    return *common_snacks_vec[0];
+}
+
 #[cfg(test)]
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
@@ -75,9 +103,20 @@ fn main() {
     let rucksacks = rucksacks_big_string.split("\n");
 
     let mut priorities_total = 0;
-    for (i, rucksack) in rucksacks.enumerate() {
+
+    for (_i, rucksack) in tqdm!(rucksacks.enumerate()) {
         priorities_total += get_snack_priority(find_common_snack(rucksack));
     }
 
-    println!("Sum of dups priorities: {}", priorities_total)
+    println!("Sum of dups priorities: {}", priorities_total);
+
+    // part 2
+    let rucksacks_v2 = rucksacks_big_string.split("\n");
+    println!("------ part 2");
+    let mut priorities_total_v2 = 0;
+    for group in tqdm!(rucksacks_v2.array_chunks::<3>()) {
+        priorities_total_v2 += get_snack_priority(find_common_snack_v2(group.to_vec()));
+    }
+
+    println!("Sum of dups priorities V2: {}", priorities_total_v2);
 }
