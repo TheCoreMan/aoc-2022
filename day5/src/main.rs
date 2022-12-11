@@ -7,6 +7,95 @@ struct MoveOperation {
     to_stack: u32,
 }
 
+struct LoadingDockState {
+    stacks: Vec<Vec<char>>,
+}
+
+impl LoadingDockState {
+    pub fn new_loading_dock(initial_state_raw: &str) -> LoadingDockState {
+        let mut stack_rows: Vec<&str> = initial_state_raw.split("\n").collect();
+        let number_row = stack_rows
+            .pop()
+            .expect("There should be more than 0 rows in the input");
+        let how_many_stacks_row: Vec<&str> = number_row
+            .split(" ")
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty()) // There are some annoying spaces in the string. After trimming they become empty.
+            .collect();
+        let how_many_stacks: usize = how_many_stacks_row[how_many_stacks_row.len() - 1]
+            .parse()
+            .expect("should be a number");
+
+        let mut stacks: Vec<Vec<char>> = Vec::with_capacity(how_many_stacks);
+        for i in 0..how_many_stacks {
+            stacks.insert(i, Vec::new());
+        }
+
+        stack_rows.reverse();
+        for row in stack_rows.iter() {
+            let row_as_vec: Vec<char> = row.chars().collect();
+            for which_char_to_read in 0..how_many_stacks {
+                // Start with one - row either starts with " " or "["
+                let container_name = row_as_vec[1 + (which_char_to_read * 4)];
+                match container_name {
+                    ' ' => (),
+                    _ => stacks[which_char_to_read].push(container_name.clone()),
+                }
+            }
+        }
+
+        return LoadingDockState {
+            stacks: stacks.clone(),
+        };
+    }
+
+    pub fn peek_top_crates_from_each_stack(&self) -> Vec<char> {
+        let mut tops: Vec<char> = Vec::with_capacity(self.stacks.capacity());
+        for stack in self.stacks.iter() {
+            let mut ruin_me = stack.clone();
+            // If there's anything on the top of the stack
+            if let Some(top) = ruin_me.pop() {
+                tops.push(top);
+            }
+        }
+        return tops;
+    }
+
+    pub fn render_loading_dock(&self) {
+        let mut ruinable_stacks = self.stacks.clone();
+        for (index, ruinable_stack) in ruinable_stacks.iter_mut().enumerate() {
+            print!("{}: ", index);
+            ruinable_stack.reverse();
+            while let Some(c) = ruinable_stack.pop() {
+                print!("{}", c);
+            }
+            print!("\n");
+        }
+    }
+
+    pub fn perform_move_operation(&mut self, op: MoveOperation) {
+        for _ in 0..(op.amount) {
+            let container = self.stacks[usize::try_from(op.from_stack - 1).unwrap()]
+                .pop()
+                .expect("there are containers to move from this stack");
+            self.stacks[usize::try_from(op.to_stack - 1).unwrap()].push(container);
+        }
+    }
+
+    pub fn perform_move_operation_cratemover_9001(&mut self, op: MoveOperation) {
+        let mut temp: Vec<char> = Vec::with_capacity(usize::try_from(op.amount).unwrap());
+        for _ in 0..op.amount {
+            let container = self.stacks[usize::try_from(op.from_stack - 1).unwrap()]
+                .pop()
+                .expect("there are containers to move from this stack");
+            temp.push(container);
+        }
+        while let Some(container) = temp.pop() {
+            self.stacks[usize::try_from(op.to_stack - 1).unwrap()].push(container);
+        }
+    }
+}
+
 // All move operations should look like this:
 // "move 3 from 6 to 2"
 // And the operations should be seperated by \n.
@@ -73,6 +162,69 @@ mod tests {
             test_case_3
         );
     }
+
+    #[test]
+    fn test_new_and_peek_loading_dock_simple_case() {
+        let initial_state_1 = "[a]     \n[A] [B] \n 1  2  ";
+        let expected_result_1 = vec!['a', 'B'];
+        let loading_dock_1 = LoadingDockState::new_loading_dock(initial_state_1);
+        assert_eq!(
+            loading_dock_1.peek_top_crates_from_each_stack(),
+            expected_result_1
+        );
+    }
+    #[test]
+    fn test_new_and_peek_loading_dock_complex_case() {
+        let initial_state_2 = "    [G]     \n[A] [B]     \n[Q] [W] [E] \n 1   2   3  ";
+        println!("{}", initial_state_2);
+        let expected_result_2 = vec!['A', 'G', 'E'];
+        let loading_dock_2 = LoadingDockState::new_loading_dock(initial_state_2);
+        assert_eq!(
+            loading_dock_2.peek_top_crates_from_each_stack(),
+            expected_result_2
+        );
+    }
+
+    #[test]
+    fn test_move_operations_on_loading_dock_complex_case() {
+        let initial_state = "    [G]     \n[A] [B]     \n[Q] [W] [E] \n 1   2   3  ";
+        let expected_result_before_move = vec!['A', 'G', 'E'];
+        let expected_result_after_first_move = vec!['A', 'W', 'B'];
+        let move_operation_1 = MoveOperation {
+            amount: 2,
+            from_stack: 2,
+            to_stack: 3,
+        };
+        let expected_result_after_second_move = vec!['A', 'B', 'G'];
+        let move_operation_2 = MoveOperation {
+            amount: 1,
+            from_stack: 3,
+            to_stack: 2,
+        };
+        let mut loading_dock = LoadingDockState::new_loading_dock(initial_state);
+        println!(" -- before move");
+        loading_dock.render_loading_dock();
+        assert_eq!(
+            loading_dock.peek_top_crates_from_each_stack(),
+            expected_result_before_move
+        );
+
+        loading_dock.perform_move_operation(move_operation_1);
+        println!(" -- after 1st move");
+        loading_dock.render_loading_dock();
+        assert_eq!(
+            loading_dock.peek_top_crates_from_each_stack(),
+            expected_result_after_first_move
+        );
+
+        loading_dock.perform_move_operation(move_operation_2);
+        println!(" -- after 2nd move");
+        loading_dock.render_loading_dock();
+        assert_eq!(
+            loading_dock.peek_top_crates_from_each_stack(),
+            expected_result_after_second_move
+        );
+    }
 }
 
 fn main() {
@@ -83,13 +235,29 @@ fn main() {
 
     // This is a pretty janky format.
     let crane_operation_seperated: Vec<&str> = crane_operation_instructions.split("\n\n").collect();
-    let _crane_initial_state_raw: &str = crane_operation_seperated[0];
+    let crane_initial_state_raw: &str = crane_operation_seperated[0];
     let crane_move_operations_raw: &str = crane_operation_seperated[1];
 
     let move_operations = parse_move_operations(crane_move_operations_raw);
-    dbg!(
-        move_operations[0].clone(),
-        move_operations[1].clone(),
-        move_operations[move_operations.len() - 1].clone()
-    );
+    let mut loading_dock = LoadingDockState::new_loading_dock(crane_initial_state_raw);
+
+    println!("before moves");
+    loading_dock.render_loading_dock();
+
+    for move_operation in move_operations {
+        // V1
+        //loading_dock.perform_move_operation(move_operation);
+
+        // V2
+        loading_dock.perform_move_operation_cratemover_9001(move_operation);
+    }
+
+    println!("after moves");
+    loading_dock.render_loading_dock();
+
+    let result: String = loading_dock
+        .peek_top_crates_from_each_stack()
+        .into_iter()
+        .collect();
+    println!("final state: {}", result);
 }
